@@ -9,10 +9,16 @@ def udp_echo_client():
     server_port = 12345
 
     try:
-        m = {"name": "Fred", "goal": "lose", "plan": "one", "assigned": "male",
-             "weight": "150 lbs", "height": "5 9", "age": "28", "active": "moderate"}
+        # m = {"name": "Fred", "goal": "lose", "plan": "one", "assigned": "male",
+        #      "weight": "150 lbs", "height": "5 9", "age": "28", "active": "moderate"}
+        #
+        # m = {"name": "Sara", "goal": "gain", "plan": "half", "assigned": "female",
+        #      "weight": "75 lbs", "height": "5 3", "age": "20", "active": "light"}
 
-        get_request = "Xave"
+        # m = "Fred"
+
+        m = {"name": "Sara", "goal": "gain", "plan": "half", "assigned": "female",
+             "weight": "150 lbs", "height": "5 3", "age": "20", "active": "light"}
 
         data = json.dumps(m)
         message = data

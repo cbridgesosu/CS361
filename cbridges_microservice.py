@@ -58,6 +58,9 @@ def microservice_server():
             return_message = str(cal_count).encode()
             server_sock.sendto(return_message, client_address)
 
+            # Saves data after each update
+            save_data()
+
             # Event listener to shut down server
             if shutdown_event.is_set():
                 break
