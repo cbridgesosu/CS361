@@ -15,6 +15,10 @@ import os
 from dotenv import load_dotenv
 import requests
 import datetime
+import socket
+import json
+import random
+import ast
 
 load_dotenv()
 
@@ -33,22 +37,28 @@ DEFAULT_LANGUAGE = "en"
 VOTE_COUNT_THRESHOLD = "2500"
 VOTE_SCORE = "8"
 
+users = {}
+
 def main():
     intro()
+
+    user_name = login()
 
     search = True
     while search:
         define_search()
 
-        user_choice = input()
+        user_choice = input("Input A for advanced features, W to see watchlist, or hit enter to continue:")
         if user_choice.isalpha() and user_choice.upper() == 'A':
             advanced_search()
             define_search()
+        elif user_choice.isalpha() and user_choice.upper() == 'W':
+            retrieve_watch_list(user_name)
 
         for option in options:
             get_option(option)
 
-        get_movies()
+        get_movies(user_name)
 
         # get_year()
         user_choice = input("What you like to initiate another search? Y/N: ")
@@ -69,7 +79,7 @@ def get_option(option):
             return get_vote()
 
 
-def get_movies():
+def get_movies(user_name):
     global DEFAULT_YEAR
     global DEFAULT_LANGUAGE
     url = (f"https://api.themoviedb.org/3/discover/movie?include_adult=false&include_video=false&language=en-US&page=1"
@@ -83,13 +93,46 @@ def get_movies():
 
     response = requests.get(url, headers=headers)
 
-    # print(response.text)
     movies = response.json()
 
     print(f"\nSearch query - Year: {DEFAULT_YEAR} Language: {DEFAULT_LANGUAGE} Vote Threshold: {VOTE_COUNT_THRESHOLD}"
           f" Rating: {VOTE_SCORE}\n")
-    for movie in movies["results"]:
-        print(movie["title"])
+    for index, movie in enumerate(movies["results"]):
+        print(f"{index+1}. {movie['title']}")
+
+    add_watch_list(user_name, movies["results"])
+
+
+def get_movie(movie_id):
+    import requests
+
+    url = f"https://api.themoviedb.org/3/movie/{movie_id}?language=en-US"
+
+    headers = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {os.getenv('API_KEY')}"
+    }
+
+    response = requests.get(url, headers=headers)
+
+    return response.json()
+
+
+def add_watch_list(user_name, movie_list):
+    print("Would you like to add any of these movies to your watchlist?")
+    answer = input("Please input movie number or press enter to continue: ")
+    while answer:
+
+        print(answer)
+        store_movie(user_name, movie_list, int(answer)-1)
+        print("Would you like to add another movie to your watchlist?")
+        answer = input("Please input movie number or press enter to continue: ")
+
+
+def store_movie(user_name, movie_list, movie_index):
+    for index, movie in enumerate(movie_list):
+        if index == movie_index:
+            store_list(user_name, movie)
 
 
 def intro():
@@ -115,6 +158,19 @@ def intro():
     print(title)
     print("This application is intended to locate the best movies released in a given year\nand display "
           "them in order of popularity, so that you can work your way through\nall the top hits!\n")
+
+
+def login():
+    name = input("What is your username?")
+    print(f"Welcome, {name}! Your watch list has been loaded.")
+    if name not in users:
+        while True:
+            user_id = random.randint(1, 1000)
+            if user_id not in users.values():
+                break
+        users[name] = user_id
+
+    return name
 
 
 def define_search():
@@ -149,6 +205,63 @@ def advanced_search():
                 options.remove(advanced_options[int(user_choice) - 1])
             else:
                 options.append(advanced_options[int(user_choice) - 1])
+
+
+def retrieve_watch_list(name):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    server_address = '127.0.0.1'
+    server_port = 12345
+
+    try:
+        m = {"user_ID": users[name]}
+        data = json.dumps(m)
+        message = data
+        print(f"Sending: {message}")
+
+        sock.sendto(message.encode(), (server_address, server_port))
+
+        response, server = sock.recvfrom(1024)
+
+        answer = response.decode().split()
+
+        if answer[0] == '"User':
+            print("Watch list is empty.")
+        else:
+            print("Watch list:")
+            for movie_id in ast.literal_eval(response.decode())["WATCH"]:
+                print(get_movie(movie_id)["title"])
+
+    finally:
+        sock.close()
+
+
+def store_list(name, movie):
+    print(f"Storing {name}, {movie}")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    server_address = '127.0.0.1'
+    server_port = 12345
+
+    try:
+        # add_request = { 'user_ID': 12345, 'LIST': 'WATCH', 'movie_ID': 98765}
+        m = {"user_ID": users[name], "LIST": 'WATCH', "movie_ID": movie['id']}
+        data = json.dumps(m)
+        message = data
+
+        sock.sendto(message.encode(), (server_address, server_port))
+
+        response, server = sock.recvfrom(1024)
+
+        answer = response.decode().split()
+
+        if answer[0] == '"User':
+            print("Watch list is empty.")
+        else:
+            print(f"Watch list: {answer}")
+
+    finally:
+        sock.close()
 
 
 def get_year():
